@@ -8,9 +8,11 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // https://supabase.com/docs/guides/functions ("HTML content is not
 // supported. GET requests that return text/html will be rewritten to
 // text/plain."). So this function only records the click and redirects;
-// the actual reveal page is static HTML hosted on GitHub Pages.
-const REVEAL_URL = 'https://lazyassin.github.io/-sentineleye/phishing-caught.html'
-const INVALID_URL = 'https://lazyassin.github.io/-sentineleye/phishing-invalid.html'
+// the actual reveal page is static HTML hosted in a public Supabase
+// Storage bucket (GitHub Pages isn't available — this repo is private,
+// and Pages requires a public repo or a paid plan).
+const REVEAL_URL = `${SUPABASE_URL}/storage/v1/object/public/phishing-pages/phishing-caught.html`
+const INVALID_URL = `${SUPABASE_URL}/storage/v1/object/public/phishing-pages/phishing-invalid.html`
 
 function redirect(url: string) {
   return new Response(null, { status: 302, headers: { Location: url } })
