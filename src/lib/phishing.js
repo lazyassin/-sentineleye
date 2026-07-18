@@ -40,6 +40,30 @@ export async function fetchPhishingOverview() {
   }
 }
 
+export async function fetchMyPhishingEvents(employeeId) {
+  const { data, error } = await supabase
+    .from('phishing_events')
+    .select('id, opened, clicked, reported, occurred_at, phishing_campaigns(template, sent_at)')
+    .eq('employee_id', employeeId)
+    .order('occurred_at', { ascending: false })
+
+  if (error) throw error
+
+  return data.map((e) => ({
+    id: e.id,
+    template: e.phishing_campaigns?.template ?? 'Unknown',
+    sentAt: e.phishing_campaigns?.sent_at ?? e.occurred_at,
+    opened: e.opened,
+    clicked: e.clicked,
+    reported: e.reported,
+  }))
+}
+
+export async function reportPhishingEvent(eventId) {
+  const { error } = await supabase.rpc('report_phishing_event', { p_event_id: eventId })
+  if (error) throw error
+}
+
 export async function sendPhishingEmail({ employee_id, template }) {
   const { data, error } = await supabase.functions.invoke('send-phishing-email', {
     body: { employee_id, template },

@@ -13,9 +13,16 @@ function json(body: unknown, status = 200) {
   })
 }
 
-const TEMPLATES: Record<string, { subject: string; html: (name: string, link: string) => string }> = {
+// Each template carries its own sender identity rather than sharing one
+// global "from" — a wire-transfer favor asked by "Security" is an
+// internal contradiction that gives the simulation away for free. The
+// address stays onboarding@resend.dev (the only address Resend allows
+// sending from before a domain is verified); only the display name
+// varies, since that's the part a recipient actually reads.
+const TEMPLATES: Record<string, { subject: string; from: string; html: (name: string, link: string) => string }> = {
   'Fake invoice': {
     subject: 'Invoice #INV-88213 – Payment overdue',
+    from: 'Billing Team <onboarding@resend.dev>',
     html: (name, link) => `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;">
         <p>Hi ${name},</p>
@@ -29,6 +36,7 @@ const TEMPLATES: Record<string, { subject: string; html: (name: string, link: st
   },
   'Credential harvest': {
     subject: 'Action required: your mailbox storage is almost full',
+    from: 'IT Support <onboarding@resend.dev>',
     html: (name, link) => `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;">
         <p>Hi ${name},</p>
@@ -41,16 +49,19 @@ const TEMPLATES: Record<string, { subject: string; html: (name: string, link: st
       </div>`,
   },
   'Business email compromise': {
-    subject: 'quick favor before my flight',
+    subject: 'Wire authorization – need your sign-off before I land',
+    from: 'Michael Grant <onboarding@resend.dev>',
     html: (name, link) => `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;">
         <p>${name},</p>
         <p>I'm boarding in 20 minutes and need you to review and approve a wire authorization
-        before I land. Can you open this now? It's time-sensitive.</p>
+        for <strong>$48,750.00</strong> to our new vendor, Halcyon Logistics, before I land.
+        Legal already signed off on their end — I just need your final approval to release it
+        today. Can you open this now? It's time-sensitive.</p>
         <p style="text-align:center;margin:24px 0;">
-          <a href="${link}" style="background:#1d9e75;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Review Document</a>
+          <a href="${link}" style="background:#c9302c;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Review &amp; Approve</a>
         </p>
-        <p>Sent from my iPhone</p>
+        <p>Thanks,<br/>Michael<br/><span style="color:#767676;font-size:12px;">Sent from my iPhone</span></p>
       </div>`,
   },
 }
@@ -63,7 +74,10 @@ Deno.serve(async (req) => {
   const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-  const RESEND_FROM = Deno.env.get('RESEND_FROM') || 'SentinelEye Security <onboarding@resend.dev>'
+  // Optional global override — set this once a real sending domain is
+  // verified in Resend. Unset, each template uses its own sender
+  // identity (defined below) instead of one shared address.
+  const RESEND_FROM_OVERRIDE = Deno.env.get('RESEND_FROM')
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'Missing authorization header' }, 401)
@@ -145,7 +159,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: RESEND_FROM,
+        from: RESEND_FROM_OVERRIDE || tpl.from,
         to: [employee.email],
         subject: tpl.subject,
         html: tpl.html(employee.full_name, trackingLink),

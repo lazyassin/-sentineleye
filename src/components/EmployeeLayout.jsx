@@ -20,6 +20,9 @@ export default function EmployeeLayout({ session, profile }) {
             <NavLink to="/" end className={navLinkClass}>
               My Training
             </NavLink>
+            <NavLink to="/phishing" className={navLinkClass}>
+              Phishing
+            </NavLink>
           </nav>
         </div>
         <button

@@ -9,8 +9,11 @@ import Phishing from './pages/Phishing'
 import Admin from './pages/Admin'
 import EmployeeLayout from './components/EmployeeLayout'
 import MyTraining from './pages/MyTraining'
+import MyPhishing from './pages/MyPhishing'
 import TrainingModule from './pages/TrainingModule'
 import SetNewPassword from './pages/SetNewPassword'
+import PhishingCaught from './pages/PhishingCaught'
+import PhishingInvalid from './pages/PhishingInvalid'
 
 function NoAccess({ email }) {
   return (
@@ -27,6 +30,49 @@ function NoAccess({ email }) {
         </button>
       </div>
     </div>
+  )
+}
+
+function AuthedApp({ session, profile, profileError, setProfile }) {
+  if (!session) {
+    return <Login />
+  }
+
+  if (profileError) {
+    return <NoAccess email={session.user.email} />
+  }
+
+  if (!profile) {
+    return null
+  }
+
+  if (profile.role === 'employee' && profile.must_change_password) {
+    return (
+      <SetNewPassword
+        email={session.user.email}
+        onSuccess={() => setProfile((p) => ({ ...p, must_change_password: false }))}
+      />
+    )
+  }
+
+  return profile.role === 'admin' ? (
+    <Routes>
+      <Route element={<Layout session={session} />}>
+        <Route index element={<Overview />} />
+        <Route path="phishing" element={<Phishing />} />
+        <Route path="admin" element={<Admin />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  ) : (
+    <Routes>
+      <Route element={<EmployeeLayout session={session} profile={profile} />}>
+        <Route index element={<MyTraining />} />
+        <Route path="phishing" element={<MyPhishing />} />
+        <Route path="training/:moduleId" element={<TrainingModule />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
   )
 }
 
@@ -60,47 +106,25 @@ function App() {
       .catch((err) => setProfileError(err.message))
   }, [session])
 
-  if (!session) {
-    return <Login />
-  }
-
-  if (profileError) {
-    return <NoAccess email={session.user.email} />
-  }
-
-  if (!profile) {
-    return null
-  }
-
-  if (profile.role === 'employee' && profile.must_change_password) {
-    return (
-      <SetNewPassword
-        email={session.user.email}
-        onSuccess={() => setProfile((p) => ({ ...p, must_change_password: false }))}
-      />
-    )
-  }
-
   return (
     <BrowserRouter>
-      {profile.role === 'admin' ? (
-        <Routes>
-          <Route element={<Layout session={session} />}>
-            <Route index element={<Overview />} />
-            <Route path="phishing" element={<Phishing />} />
-            <Route path="admin" element={<Admin />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      ) : (
-        <Routes>
-          <Route element={<EmployeeLayout session={session} profile={profile} />}>
-            <Route index element={<MyTraining />} />
-            <Route path="training/:moduleId" element={<TrainingModule />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      )}
+      <Routes>
+        {/* Public — reached by email recipients with no session, via the
+            track-phishing-click edge function's redirect. */}
+        <Route path="/phishing-caught" element={<PhishingCaught />} />
+        <Route path="/phishing-invalid" element={<PhishingInvalid />} />
+        <Route
+          path="*"
+          element={
+            <AuthedApp
+              session={session}
+              profile={profile}
+              profileError={profileError}
+              setProfile={setProfile}
+            />
+          }
+        />
+      </Routes>
     </BrowserRouter>
   )
 }

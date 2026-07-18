@@ -4,15 +4,14 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Supabase Edge Functions rewrite any GET response with a text/html
-// Content-Type to text/plain — HTML is explicitly unsupported for GET:
-// https://supabase.com/docs/guides/functions ("HTML content is not
-// supported. GET requests that return text/html will be rewritten to
-// text/plain."). So this function only records the click and redirects;
-// the actual reveal page is static HTML hosted in a public Supabase
-// Storage bucket (GitHub Pages isn't available — this repo is private,
-// and Pages requires a public repo or a paid plan).
-const REVEAL_URL = `${SUPABASE_URL}/storage/v1/object/public/phishing-pages/phishing-caught.html`
-const INVALID_URL = `${SUPABASE_URL}/storage/v1/object/public/phishing-pages/phishing-invalid.html`
+// Content-Type to text/plain, and Supabase Storage does the same for
+// stored HTML objects "for security" — both confirmed directly, not
+// assumed. So this function only records the click and redirects; the
+// actual reveal pages are public routes in the React app itself
+// (src/pages/PhishingCaught.jsx, PhishingInvalid.jsx), deployed to Vercel.
+const APP_URL = 'https://sentineleye-wheat.vercel.app'
+const REVEAL_URL = `${APP_URL}/phishing-caught`
+const INVALID_URL = `${APP_URL}/phishing-invalid`
 
 function redirect(url: string) {
   return new Response(null, { status: 302, headers: { Location: url } })
