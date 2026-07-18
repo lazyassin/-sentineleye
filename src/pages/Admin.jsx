@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { UserPlus, Mail, Building2, Loader2, Copy, Check, AlertTriangle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { UserPlus, Mail, Building2, Loader2, Copy, Check, AlertTriangle, ChevronRight } from 'lucide-react'
 import { fetchEmployees, addEmployee } from '../lib/admin'
 import RiskBadge from '../components/RiskBadge'
 
@@ -189,14 +190,22 @@ export default function Admin() {
 
         <ul className="divide-y divide-border-subtle">
           {employees?.map((emp) => (
-            <li key={emp.id} className="flex items-center justify-between gap-4 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-white">{emp.full_name}</p>
-                <p className="text-xs text-gray-500">
-                  {emp.department} · {emp.email}
-                </p>
-              </div>
-              <RiskBadge score={emp.risk_score} />
+            <li key={emp.id}>
+              <Link
+                to={`/admin/employees/${emp.id}`}
+                className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-accent/5"
+              >
+                <div>
+                  <p className="text-sm font-medium text-white">{emp.full_name}</p>
+                  <p className="text-xs text-gray-500">
+                    {emp.department} · {emp.email}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RiskBadge score={emp.risk_score} />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-gray-600" />
+                </div>
+              </Link>
             </li>
           ))}
           {employees?.length === 0 && (

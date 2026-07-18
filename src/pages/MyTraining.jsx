@@ -2,14 +2,22 @@ import { useEffect, useState } from 'react'
 import { Link, useOutletContext } from 'react-router-dom'
 import { CheckCircle2, Circle, Clock } from 'lucide-react'
 import { fetchMyTraining } from '../lib/training'
+import { fetchMyRisk } from '../lib/risk'
+import RiskCard from '../components/RiskCard'
 
 export default function MyTraining() {
   const { session, profile } = useOutletContext()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [risk, setRisk] = useState(null)
+  const [riskError, setRiskError] = useState(null)
 
   useEffect(() => {
     fetchMyTraining(profile.employee_id).then(setData).catch((err) => setError(err.message))
+  }, [profile.employee_id])
+
+  useEffect(() => {
+    fetchMyRisk().then(setRisk).catch((err) => setRiskError(err.message))
   }, [profile.employee_id])
 
   const total = data?.modules.length ?? 0
@@ -21,6 +29,13 @@ export default function MyTraining() {
         <h1 className="text-lg font-semibold text-white">My training</h1>
         <p className="text-sm text-gray-400">Signed in as {session.user.email}</p>
       </div>
+
+      <RiskCard
+        risk={risk}
+        error={riskError}
+        title="Your risk score"
+        loadingLabel="Loading your risk score…"
+      />
 
       {error && (
         <div className="mb-6 rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400">

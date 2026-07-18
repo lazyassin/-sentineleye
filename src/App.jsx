@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Overview from './pages/Overview'
 import Phishing from './pages/Phishing'
 import Admin from './pages/Admin'
+import EmployeeDetail from './pages/EmployeeDetail'
 import EmployeeLayout from './components/EmployeeLayout'
 import MyTraining from './pages/MyTraining'
 import MyPhishing from './pages/MyPhishing'
@@ -61,6 +62,7 @@ function AuthedApp({ session, profile, profileError, setProfile }) {
         <Route index element={<Overview />} />
         <Route path="phishing" element={<Phishing />} />
         <Route path="admin" element={<Admin />} />
+        <Route path="admin/employees/:employeeId" element={<EmployeeDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -64,6 +64,26 @@ export async function reportPhishingEvent(eventId) {
   if (error) throw error
 }
 
+const TOKEN_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+// Lets an employee report a suspicious link without ever clicking it — the
+// tracking token is extracted from whatever they paste (a full link, a
+// forwarded snippet, doesn't matter) and matched server-side against
+// their own events only. Reporting this way, with clicked left false, is
+// the cleanest positive signal the risk score can reward.
+export async function reportPhishingByLink(pastedText) {
+  const match = pastedText.match(TOKEN_RE)
+  if (!match) {
+    throw new Error("That doesn't look like a SentinelEye link — couldn't find a tracking token in it.")
+  }
+
+  const { data: found, error } = await supabase.rpc('report_phishing_by_token', { p_token: match[0] })
+  if (error) throw error
+  if (!found) {
+    throw new Error("Link not recognized, or it wasn't sent to you.")
+  }
+}
+
 export async function sendPhishingEmail({ employee_id, template }) {
   const { data, error } = await supabase.functions.invoke('send-phishing-email', {
     body: { employee_id, template },

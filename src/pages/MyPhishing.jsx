@@ -1,32 +1,75 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { Flag, CheckCircle2, MousePointerClick, Loader2 } from 'lucide-react'
-import { fetchMyPhishingEvents, reportPhishingEvent } from '../lib/phishing'
+import { Flag, Loader2, Link2, CheckCircle2 } from 'lucide-react'
+import { fetchMyPhishingEvents, reportPhishingEvent, reportPhishingByLink } from '../lib/phishing'
+import PhishingStatusBadge from '../components/PhishingStatusBadge'
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 
-function StatusBadge({ reported, clicked }) {
-  if (reported) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-accent" style={{ backgroundColor: 'rgba(29,158,117,0.12)' }}>
-        <CheckCircle2 className="h-3 w-3" />
-        Reported
-      </span>
-    )
+function ReportLinkForm({ onReported }) {
+  const [text, setText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(null)
+    setSuccess(false)
+    setSubmitting(true)
+    try {
+      await reportPhishingByLink(text)
+      setSuccess(true)
+      setText('')
+      onReported()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
   }
-  if (clicked) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium" style={{ color: '#ec835a', backgroundColor: 'rgba(236,131,90,0.12)' }}>
-        <MousePointerClick className="h-3 w-3" />
-        Clicked
-      </span>
-    )
-  }
+
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium text-gray-500" style={{ backgroundColor: 'rgba(148,163,184,0.1)' }}>
-      No action recorded
-    </span>
+    <form
+      onSubmit={handleSubmit}
+      className="mb-6 rounded-2xl border border-border-subtle bg-surface-raised p-6"
+    >
+      <h2 className="mb-1 text-sm font-semibold text-white">Report a suspicious link</h2>
+      <p className="mb-4 text-xs text-gray-400">
+        Got a suspicious email? Don't click it — copy the link address and paste it here to
+        report it. You'll get credit for reporting even if you never open it.
+      </p>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+          <input
+            type="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Paste the link from the suspicious email"
+            className="w-full rounded-lg border border-border-subtle bg-surface py-2.5 pl-10 pr-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={!text.trim() || submitting}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4" />}
+          Report
+        </button>
+      </div>
+
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      {success && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-accent">
+          <CheckCircle2 className="h-4 w-4" />
+          Reported — thanks for catching it.
+        </p>
+      )}
+    </form>
   )
 }
 
@@ -63,6 +106,8 @@ export default function MyPhishing() {
         </p>
       </div>
 
+      <ReportLinkForm onReported={load} />
+
       {error && (
         <div className="mb-6 rounded-lg border border-red-900/50 bg-red-950/50 px-4 py-3 text-sm text-red-400">
           Couldn't load your phishing history: {error}
@@ -85,7 +130,7 @@ export default function MyPhishing() {
                   <p className="text-xs text-gray-500">{formatDate(e.sentAt)}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <StatusBadge reported={e.reported} clicked={e.clicked} />
+                  <PhishingStatusBadge reported={e.reported} clicked={e.clicked} />
                   {!e.reported && (
                     <button
                       type="button"
