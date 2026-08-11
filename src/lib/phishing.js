@@ -84,9 +84,13 @@ export async function reportPhishingByLink(pastedText) {
   }
 }
 
-export async function sendPhishingEmail({ employee_id, template }) {
+// employee_ids is always an array, even for a single recipient — the edge
+// function creates one campaign covering the whole batch, so a department
+// send lands as one campaign rather than N separate one-person ones.
+// `label` only shapes the campaign's display name.
+export async function sendPhishingEmail({ employee_ids, template, label }) {
   const { data, error } = await supabase.functions.invoke('send-phishing-email', {
-    body: { employee_id, template },
+    body: { employee_ids, template, label },
   })
 
   if (error) {

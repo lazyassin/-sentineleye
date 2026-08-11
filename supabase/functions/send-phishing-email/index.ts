@@ -99,17 +99,33 @@ Deno.serve(async (req) => {
     return json({ error: 'Admin access required' }, 403)
   }
 
-  let body: { employee_id?: string; template?: string }
+  let body: { employee_id?: string; employee_ids?: string[]; template?: string; label?: string }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const employee_id = (body.employee_id ?? '').trim()
   const template = (body.template ?? '').trim()
+  const label = (body.label ?? '').trim()
 
-  if (!employee_id || !template) return json({ error: 'employee_id and template are required' }, 400)
+  // employee_id (singular) is still accepted so the one-off send path keeps
+  // working unchanged; everything below treats it as a one-element batch.
+  const requestedIds = Array.isArray(body.employee_ids)
+    ? body.employee_ids.map((id) => String(id).trim()).filter(Boolean)
+    : body.employee_id
+      ? [String(body.employee_id).trim()]
+      : []
+
+  if (requestedIds.length === 0 || !template) {
+    return json({ error: 'template and at least one employee are required' }, 400)
+  }
+  // A guard rather than a real limit: this loops one Resend call per
+  // recipient, so an unbounded list would risk the function timing out
+  // partway and leaving a campaign half-sent.
+  if (requestedIds.length > 100) {
+    return json({ error: 'Too many recipients in one send (limit 100).' }, 400)
+  }
   if (!TEMPLATES[template]) {
     return json({ error: `Unknown template "${template}". Choose one of: ${Object.keys(TEMPLATES).join(', ')}` }, 400)
   }
@@ -120,74 +136,111 @@ Deno.serve(async (req) => {
   // Privileged from here — service role bypasses RLS entirely.
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 
-  const { data: employee, error: employeeError } = await serviceClient
+  const { data: employees, error: employeeError } = await serviceClient
     .from('employees')
     .select('id, full_name, email')
-    .eq('id', employee_id)
-    .single()
+    .in('id', requestedIds)
 
-  if (employeeError || !employee) return json({ error: 'Employee not found' }, 404)
+  if (employeeError) return json({ error: `Could not load employees: ${employeeError.message}` }, 500)
+  if (!employees || employees.length === 0) return json({ error: 'No matching employees found' }, 404)
+
+  const today = new Date().toISOString().slice(0, 10)
+  // target_count === 1 is what the dashboard uses to file a send under
+  // "Manual sends" rather than the main campaign list, so a single-recipient
+  // send keeps its original naming and grouping.
+  const campaignName = employees.length === 1
+    ? `Manual: ${employees[0].full_name} — ${today}`
+    : `${label || 'Campaign'}: ${employees.length} recipients — ${today}`
 
   const { data: campaign, error: campaignError } = await serviceClient
     .from('phishing_campaigns')
-    .insert({
-      name: `Manual: ${employee.full_name} — ${new Date().toISOString().slice(0, 10)}`,
-      template,
-      target_count: 1,
-    })
+    .insert({ name: campaignName, template, target_count: employees.length })
     .select()
     .single()
 
   if (campaignError) return json({ error: `Could not create campaign: ${campaignError.message}` }, 500)
 
-  const { data: event, error: eventError } = await serviceClient
-    .from('phishing_events')
-    .insert({ campaign_id: campaign.id, employee_id: employee.id })
-    .select('id, tracking_token')
-    .single()
-
-  if (eventError) return json({ error: `Could not create event: ${eventError.message}` }, 500)
-
-  const trackingLink = `${SUPABASE_URL}/functions/v1/track-phishing-click?token=${event.tracking_token}`
   const tpl = TEMPLATES[template]
+  const results: unknown[] = []
+  let sentCount = 0
+  let sandboxBlocked = false
 
-  let emailSent = false
-  let warning: string | null = null
+  // Sequential on purpose. Firing every send at once would risk tripping
+  // Resend's rate limit, and a partial failure would then be much harder to
+  // attribute to a specific recipient than it is here.
+  for (const employee of employees) {
+    const { data: event, error: eventError } = await serviceClient
+      .from('phishing_events')
+      .insert({ campaign_id: campaign.id, employee_id: employee.id })
+      .select('id, tracking_token')
+      .single()
 
-  try {
-    const resendRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: RESEND_FROM_OVERRIDE || tpl.from,
-        to: [employee.email],
-        subject: tpl.subject,
-        html: tpl.html(employee.full_name, trackingLink),
-      }),
-    })
-
-    const resendBody = await resendRes.json().catch(() => null)
-
-    if (resendRes.ok) {
-      emailSent = true
-    } else {
-      const raw = resendBody?.message || `Resend responded with HTTP ${resendRes.status}`
-      const sandboxLimit = /own email|verify a domain|testing emails|not verified/i.test(raw)
-      warning = sandboxLimit
-        ? `Resend could not deliver to ${employee.email}: ${raw} This project's employee emails are fictional (@sentineleye.io), and Resend's unverified/sandbox mode only delivers to the address on your Resend account. The simulation was still recorded — use the tracking link below to test the click flow directly, or verify a sending domain in Resend to reach real addresses.`
-        : `Resend could not deliver the email: ${raw}`
+    if (eventError || !event) {
+      results.push({
+        employee_id: employee.id,
+        full_name: employee.full_name,
+        email: employee.email,
+        email_sent: false,
+        error: `Could not record event: ${eventError?.message ?? 'unknown error'}`,
+      })
+      continue
     }
-  } catch (err) {
-    warning = `Could not reach Resend: ${err instanceof Error ? err.message : 'unknown error'}`
+
+    const trackingLink = `${SUPABASE_URL}/functions/v1/track-phishing-click?token=${event.tracking_token}`
+    let emailSent = false
+    let error: string | null = null
+
+    try {
+      const resendRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: RESEND_FROM_OVERRIDE || tpl.from,
+          to: [employee.email],
+          subject: tpl.subject,
+          html: tpl.html(employee.full_name, trackingLink),
+        }),
+      })
+
+      const resendBody = await resendRes.json().catch(() => null)
+
+      if (resendRes.ok) {
+        emailSent = true
+        sentCount++
+      } else {
+        error = resendBody?.message || `Resend responded with HTTP ${resendRes.status}`
+        if (/own email|verify a domain|testing emails|not verified/i.test(error)) sandboxBlocked = true
+      }
+    } catch (err) {
+      error = `Could not reach Resend: ${err instanceof Error ? err.message : 'unknown error'}`
+    }
+
+    // The tracking link is returned whether or not delivery succeeded, so the
+    // click flow stays testable while the sending domain is unverified.
+    results.push({
+      employee_id: employee.id,
+      full_name: employee.full_name,
+      email: employee.email,
+      tracking_link: trackingLink,
+      email_sent: emailSent,
+      error,
+    })
   }
+
+  const warning = sandboxBlocked
+    ? "Some recipients could not be delivered to. This project's employee addresses are fictional (@sentineleye.io), and Resend's unverified mode only delivers to the address on your own Resend account. Every simulation was still recorded — use the tracking links below to exercise the click flow, or verify a sending domain to reach real addresses."
+    : null
 
   // Never log RESEND_API_KEY or any recipient credentials — only what's
   // already returned to the caller.
   return json({
     campaign,
-    event: { id: event.id },
-    tracking_link: trackingLink,
-    email_sent: emailSent,
+    results,
+    sent_count: sentCount,
+    failed_count: results.length - sentCount,
+    // Retained so existing single-send callers keep working unchanged.
+    tracking_link: (results[0] as { tracking_link?: string })?.tracking_link ?? null,
+    email_sent: sentCount > 0,
     warning,
   })
 })

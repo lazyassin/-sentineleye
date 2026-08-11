@@ -46,10 +46,13 @@ export default function Phishing() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(null)
   const [template, setTemplate] = useState(TEMPLATES[0])
+  const [audience, setAudience] = useState('one') // 'one' | 'department' | 'all'
+  const [department, setDepartment] = useState('')
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState(null)
   const [result, setResult] = useState(null)
-  const [copied, setCopied] = useState(false)
+  // Holds the link most recently copied, so the tick shows on that row only.
+  const [copied, setCopied] = useState(null)
 
   const load = () => {
     fetchPhishingOverview().then(setData).catch((err) => setError(err.message))
@@ -68,15 +71,35 @@ export default function Phishing() {
       .slice(0, 6)
   }, [query, employees, selected])
 
+  const departments = useMemo(
+    () => [...new Set(employees.map((e) => e.department).filter(Boolean))].sort(),
+    [employees],
+  )
+
+  // Resolving the audience here rather than server-side keeps the edge
+  // function to a single code path: it only ever receives a list of ids.
+  const recipients = useMemo(() => {
+    if (audience === 'all') return employees
+    if (audience === 'department') return employees.filter((e) => e.department === department)
+    return selected ? [selected] : []
+  }, [audience, employees, department, selected])
+
+  const audienceLabel =
+    audience === 'all' ? 'All employees' : audience === 'department' ? department : 'Manual'
+
   const handleSend = async (e) => {
     e.preventDefault()
     setSendError(null)
     setResult(null)
-    setCopied(false)
+    setCopied(null)
     setSending(true)
 
     try {
-      const res = await sendPhishingEmail({ employee_id: selected.id, template })
+      const res = await sendPhishingEmail({
+        employee_ids: recipients.map((r) => r.id),
+        template,
+        label: audienceLabel,
+      })
       setResult(res)
       setSelected(null)
       setQuery('')
@@ -88,8 +111,8 @@ export default function Phishing() {
     }
   }
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(result.tracking_link)
+  const handleCopyLink = (link) => {
+    navigator.clipboard.writeText(link)
     setCopied(true)
   }
 
@@ -111,8 +134,60 @@ export default function Phishing() {
       >
         <h2 className="mb-4 text-sm font-semibold text-white">Send simulation</h2>
 
+        <div className="mb-4">
+          <span className="mb-1.5 block text-sm font-medium text-gray-300">Send to</span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'one', label: 'One employee' },
+              { key: 'department', label: 'A department' },
+              { key: 'all', label: 'Everyone' },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setAudience(opt.key)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  audience === opt.key
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-border-subtle text-gray-400 hover:text-white'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="relative sm:col-span-2">
+            {audience === 'department' ? (
+              <>
+                <label htmlFor="department" className="mb-1.5 block text-sm font-medium text-gray-300">
+                  Department
+                </label>
+                <select
+                  id="department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full rounded-lg border border-border-subtle bg-surface py-2.5 px-3 text-sm text-white outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">Choose a department…</option>
+                  {departments.map((d) => (
+                    <option key={d} value={d}>
+                      {d} ({employees.filter((e) => e.department === d).length})
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : audience === 'all' ? (
+              <>
+                <span className="mb-1.5 block text-sm font-medium text-gray-300">Recipients</span>
+                <div className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-2.5 text-sm text-white">
+                  Every employee on the roster ({employees.length})
+                </div>
+              </>
+            ) : (
+              <>
             <label htmlFor="employee_search" className="mb-1.5 block text-sm font-medium text-gray-300">
               Employee
             </label>
@@ -161,6 +236,8 @@ export default function Phishing() {
                 )}
               </div>
             )}
+              </>
+            )}
           </div>
 
           <div>
@@ -188,42 +265,80 @@ export default function Phishing() {
           </div>
         )}
 
-        {result && result.email_sent && (
-          <div className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
-            Simulation sent — the campaign now appears in Manual sends below.
-          </div>
-        )}
-
-        {result && !result.email_sent && (
-          <div
-            className="mt-4 rounded-lg border p-4"
-            style={{ borderColor: 'rgba(250,178,25,0.3)', backgroundColor: 'rgba(250,178,25,0.1)' }}
-          >
-            <div className="flex items-start gap-2 text-xs" style={{ color: '#fab219' }}>
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {result.warning}
+        {result && (
+          <div className="mt-4 space-y-3">
+            <div
+              className={`rounded-lg border px-3 py-2 text-sm ${
+                result.sent_count > 0
+                  ? 'border-accent/30 bg-accent/10 text-accent'
+                  : 'border-border-subtle bg-surface text-gray-300'
+              }`}
+            >
+              Recorded {result.results.length} simulation
+              {result.results.length === 1 ? '' : 's'} · delivered {result.sent_count},
+              undelivered {result.failed_count}
             </div>
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-border-subtle bg-surface px-3 py-2">
-              <span className="truncate font-mono text-xs text-white">{result.tracking_link}</span>
-              <button
-                type="button"
-                onClick={handleCopyLink}
-                className="ml-2 flex shrink-0 items-center gap-1 rounded-md border border-border-subtle px-2 py-1 text-xs text-gray-300 transition-colors hover:border-accent hover:text-accent"
+
+            {result.warning && (
+              <div
+                className="flex items-start gap-2 rounded-lg border p-3 text-xs"
+                style={{ borderColor: 'rgba(250,178,25,0.3)', backgroundColor: 'rgba(250,178,25,0.1)', color: '#fab219' }}
               >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {result.warning}
+              </div>
+            )}
+
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {result.results.map((r) => (
+                <div
+                  key={r.employee_id}
+                  className="rounded-lg border border-border-subtle bg-surface px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs text-white">
+                      {r.full_name}
+                      <span className="text-gray-500"> · {r.email}</span>
+                    </span>
+                    <span
+                      className="shrink-0 text-xs"
+                      style={{ color: r.email_sent ? '#1d9e75' : '#fab219' }}
+                    >
+                      {r.email_sent ? 'Delivered' : 'Not delivered'}
+                    </span>
+                  </div>
+                  {r.tracking_link && (
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      <span className="truncate font-mono text-xs text-gray-500">
+                        {r.tracking_link}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyLink(r.tracking_link)}
+                        className="flex shrink-0 items-center gap-1 rounded-md border border-border-subtle px-2 py-1 text-xs text-gray-300 transition-colors hover:border-accent hover:text-accent"
+                      >
+                        {copied === r.tracking_link ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copied === r.tracking_link ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
 
         <button
           type="submit"
-          disabled={!selected || sending}
+          disabled={recipients.length === 0 || sending}
           className="mt-4 flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          {sending ? 'Sending…' : 'Send simulation'}
+          {sending
+            ? 'Sending…'
+            : recipients.length > 1
+              ? `Send to ${recipients.length} employees`
+              : 'Send simulation'}
         </button>
       </form>
 
