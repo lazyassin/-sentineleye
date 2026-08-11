@@ -1,7 +1,7 @@
 import { supabase } from '../supabase'
 
 export async function fetchOverview() {
-  const [historyRes, countRes, topRiskRes, metricsRes, moduleCountRes, completionCountRes] =
+  const [historyRes, countRes, employeeRiskRes, metricsRes, moduleCountRes, completionCountRes] =
     await Promise.all([
       supabase
         .from('risk_score_history')
@@ -9,11 +9,10 @@ export async function fetchOverview() {
         .is('employee_id', null)
         .order('recorded_at', { ascending: true }),
       supabase.from('employees').select('*', { count: 'exact', head: true }),
-      supabase
-        .from('employees')
-        .select('id, full_name, email, department, risk_score')
-        .order('risk_score', { ascending: false })
-        .limit(5),
+      // Live per-employee scores rather than the seeded employees.risk_score
+      // column, so the watch list and the organisational figure below agree
+      // with the individual breakdowns and the departmental averages.
+      supabase.rpc('get_all_employee_risk'),
       supabase
         .from('security_metrics')
         .select('metric_key, metric_value, recorded_at')
@@ -22,7 +21,7 @@ export async function fetchOverview() {
       supabase.from('training_completions').select('*', { count: 'exact', head: true }),
     ])
 
-  for (const res of [historyRes, countRes, topRiskRes, metricsRes, moduleCountRes, completionCountRes]) {
+  for (const res of [historyRes, countRes, employeeRiskRes, metricsRes, moduleCountRes, completionCountRes]) {
     if (res.error) throw res.error
   }
 
@@ -39,9 +38,26 @@ export async function fetchOverview() {
     }
   }
 
-  const history = historyRes.data
-  const orgScore = history.length ? history[history.length - 1].score : null
-  const orgScorePrev = history.length > 1 ? history[history.length - 2].score : null
+  const employeeRisk = employeeRiskRes.data ?? []
+
+  // The organisational score is the mean of the live individual scores, so
+  // the headline figure is derived the same way as everything beneath it.
+  const orgScore = employeeRisk.length
+    ? Math.round(employeeRisk.reduce((sum, e) => sum + e.risk_score, 0) / employeeRisk.length)
+    : null
+
+  // risk_score_history is seeded demo data covering a period before the
+  // system was live, so it can't be recomputed. Today's live figure is
+  // appended as the final point, which keeps the chart ending on the same
+  // number the headline shows rather than on a stale seeded one.
+  const seededHistory = historyRes.data
+  const history =
+    orgScore != null
+      ? [...seededHistory, { score: orgScore, recorded_at: new Date().toISOString().slice(0, 10) }]
+      : seededHistory
+  const orgScorePrev = seededHistory.length
+    ? seededHistory[seededHistory.length - 1].score
+    : null
 
   const employeeCount = countRes.count ?? 0
   const moduleCount = moduleCountRes.count ?? 0
@@ -54,7 +70,8 @@ export async function fetchOverview() {
     orgScore,
     orgScorePrev,
     employeeCount,
-    topRisk: topRiskRes.data,
+    // Already ordered by risk descending inside the RPC.
+    topRisk: employeeRisk.slice(0, 5),
     metrics,
     trainingCompletionRate,
   }

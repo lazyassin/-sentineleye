@@ -1,13 +1,14 @@
 import { supabase } from '../supabase'
 
+// risk_score here is computed live from training and phishing activity, not
+// read from the employees.risk_score column. That column is seeded demo data
+// and drifts as soon as anyone clicks a simulation, so displaying it would
+// contradict the per-employee breakdowns shown elsewhere.
 export async function fetchEmployees() {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('id, full_name, email, department, risk_score, created_at')
-    .order('created_at', { ascending: false })
+  const { data, error } = await supabase.rpc('get_all_employee_risk')
 
   if (error) throw error
-  return data
+  return [...data].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
 }
 
 export async function fetchEmployeeDetail(employeeId) {
