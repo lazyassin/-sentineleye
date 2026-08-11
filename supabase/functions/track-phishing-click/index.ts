@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
   const { data: event } = await serviceClient
     .from('phishing_events')
-    .select('id, clicked')
+    .select('id, clicked, employee_id, phishing_campaigns(template)')
     .eq('tracking_token', token)
     .maybeSingle()
 
@@ -46,7 +46,48 @@ Deno.serve(async (req) => {
       .update({ clicked: true, opened: true, occurred_at: new Date().toISOString() })
       .eq('id', event.id)
       .eq('clicked', false)
+
+    // Close the measurement-to-remediation loop: a click doesn't just move
+    // the risk score, it puts the module covering that specific lure on the
+    // recipient's training list, with the reason recorded. Assigning here
+    // rather than on every request means a re-open or a scanner pre-fetch
+    // doesn't re-trigger it; the unique constraint is the second guard.
+    await assignRemediation(serviceClient, event)
   }
 
   return redirect(REVEAL_URL)
 })
+
+// Deliberately never throws: the recipient still needs their reveal page
+// even if the assignment fails, so a problem here degrades the remediation
+// rather than breaking the debrief that the ethics of this depend on.
+async function assignRemediation(client: ReturnType<typeof createClient>, event: {
+  id: string
+  employee_id: string
+  phishing_campaigns?: { template?: string } | null
+}) {
+  try {
+    const template = event.phishing_campaigns?.template
+    if (!template) return
+
+    const { data: module } = await client
+      .from('training_modules')
+      .select('id')
+      .eq('remediates_template', template)
+      .maybeSingle()
+
+    if (!module) return
+
+    await client.from('training_assignments').upsert(
+      {
+        employee_id: event.employee_id,
+        module_id: module.id,
+        reason: `Assigned automatically after clicking a ${template} simulation.`,
+        source_event_id: event.id,
+      },
+      { onConflict: 'employee_id,module_id', ignoreDuplicates: true },
+    )
+  } catch {
+    // Swallowed by design — see the note above.
+  }
+}

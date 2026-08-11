@@ -11,7 +11,7 @@ export async function fetchEmployees() {
 }
 
 export async function fetchEmployeeDetail(employeeId) {
-  const [empRes, modulesRes, completionsRes, eventsRes] = await Promise.all([
+  const [empRes, modulesRes, completionsRes, eventsRes, assignmentsRes] = await Promise.all([
     supabase
       .from('employees')
       .select('id, full_name, email, department')
@@ -27,26 +27,40 @@ export async function fetchEmployeeDetail(employeeId) {
       .select('id, opened, clicked, reported, occurred_at, phishing_campaigns(template, sent_at)')
       .eq('employee_id', employeeId)
       .order('occurred_at', { ascending: false }),
+    supabase
+      .from('training_assignments')
+      .select('module_id, reason, assigned_at')
+      .eq('employee_id', employeeId),
   ])
 
   if (empRes.error) throw empRes.error
   if (modulesRes.error) throw modulesRes.error
   if (completionsRes.error) throw completionsRes.error
   if (eventsRes.error) throw eventsRes.error
+  if (assignmentsRes.error) throw assignmentsRes.error
 
   const completedByModule = {}
   for (const row of completionsRes.data) completedByModule[row.module_id] = row
 
+  const assignedByModule = {}
+  for (const row of assignmentsRes.data) assignedByModule[row.module_id] = row
+
   const modules = modulesRes.data.map((m) => {
     const completion = completedByModule[m.id]
+    const assignment = assignedByModule[m.id]
     return {
       ...m,
       completed: Boolean(completion),
       completedAt: completion?.completed_at ?? null,
       score: completion?.score ?? null,
       total: completion?.total ?? null,
+      assigned: Boolean(assignment),
+      assignmentReason: assignment?.reason ?? null,
     }
   })
+
+  const rank = (m) => (m.completed ? 2 : m.assigned ? 0 : 1)
+  modules.sort((a, b) => rank(a) - rank(b))
 
   const events = eventsRes.data.map((e) => ({
     id: e.id,

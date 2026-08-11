@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, Circle, Clock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Circle, Clock, AlertTriangle } from 'lucide-react'
 import { fetchEmployeeDetail } from '../lib/admin'
 import { fetchEmployeeRisk } from '../lib/risk'
 import RiskCard from '../components/RiskCard'
@@ -70,7 +70,23 @@ export default function EmployeeDetail() {
                       <Circle className="mt-0.5 h-5 w-5 shrink-0 text-gray-600" />
                     )}
                     <div>
-                      <p className="text-sm font-medium text-white">{m.title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-white">{m.title}</p>
+                        {m.assigned && !m.completed && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                            style={{ color: '#fab219', backgroundColor: 'rgba(250,178,25,0.12)' }}
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            Priority
+                          </span>
+                        )}
+                      </div>
+                      {m.assigned && (
+                        <p className="mt-1 text-xs" style={{ color: '#fab219' }}>
+                          {m.assignmentReason}
+                        </p>
+                      )}
                       <p className="mt-1 flex items-center gap-1 text-xs text-gray-600">
                         <Clock className="h-3 w-3" />
                         {m.duration_minutes} min · {m.category}
