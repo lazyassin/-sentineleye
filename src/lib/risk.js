@@ -7,6 +7,15 @@ export function riskBand(score) {
   return 'critical'
 }
 
+// Single source for band colours, so a bar, a badge and a card can't drift
+// into disagreeing about what "serious" looks like.
+export const BAND_COLOR = {
+  good: '#0ca30c',
+  warning: '#fab219',
+  serious: '#ec835a',
+  critical: '#d03b3b',
+}
+
 function mapBreakdown(data) {
   return {
     score: data.risk_score,

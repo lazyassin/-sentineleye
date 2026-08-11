@@ -59,3 +59,19 @@ export async function fetchOverview() {
     trainingCompletionRate,
   }
 }
+
+// Admin-only, enforced inside the RPC rather than here. The average is
+// computed from the same formula as the individual scores, so a department
+// figure can't drift away from the employees it summarises.
+export async function fetchDepartmentRisk() {
+  const { data, error } = await supabase.rpc('get_department_risk')
+  if (error) throw error
+
+  return data.map((row) => ({
+    department: row.department,
+    employeeCount: row.employee_count,
+    avgRisk: Number(row.avg_risk_score),
+    clickedEvents: row.clicked_events,
+    totalEvents: row.total_events,
+  }))
+}

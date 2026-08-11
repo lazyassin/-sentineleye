@@ -1,12 +1,5 @@
-import { riskBand } from '../lib/risk'
+import { riskBand, BAND_COLOR } from '../lib/risk'
 import RiskBadge from './RiskBadge'
-
-const BAND_COLOR = {
-  good: '#0ca30c',
-  warning: '#fab219',
-  serious: '#ec835a',
-  critical: '#d03b3b',
-}
 
 export default function RiskCard({ risk, error, title = 'Risk score', loadingLabel = 'Loading risk score…' }) {
   if (error) {

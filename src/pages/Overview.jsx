@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { fetchOverview } from '../lib/dashboard'
+import { fetchOverview, fetchDepartmentRisk } from '../lib/dashboard'
+import { riskBand, BAND_COLOR } from '../lib/risk'
 import StatTile from '../components/StatTile'
 import RiskTrendChart from '../components/RiskTrendChart'
 import RiskBadge from '../components/RiskBadge'
@@ -16,9 +17,16 @@ export default function Overview() {
   const { session } = useOutletContext()
   const [overview, setOverview] = useState(null)
   const [error, setError] = useState(null)
+  const [departments, setDepartments] = useState(null)
 
   useEffect(() => {
     fetchOverview().then(setOverview).catch((err) => setError(err.message))
+  }, [])
+
+  useEffect(() => {
+    // Failing quietly: the departmental view is supplementary, and losing it
+    // shouldn't take the whole dashboard down with it.
+    fetchDepartmentRisk().then(setDepartments).catch(() => setDepartments([]))
   }, [])
 
   return (
@@ -118,6 +126,47 @@ export default function Overview() {
               deltaGood={null}
             />
           </div>
+
+          {departments && departments.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-border-subtle bg-surface-raised">
+              <div className="border-b border-border-subtle px-4 py-3">
+                <h2 className="text-sm font-semibold text-white">Risk by department</h2>
+                <p className="text-xs text-gray-500">
+                  Average of the same per-employee score, most exposed first
+                </p>
+              </div>
+              <ul className="divide-y divide-border-subtle">
+                {departments.map((d) => (
+                  <li key={d.department} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-white">{d.department}</p>
+                        <p className="text-xs text-gray-500">
+                          {d.employeeCount} {d.employeeCount === 1 ? 'person' : 'people'} ·{' '}
+                          {d.clickedEvents}/{d.totalEvents} simulations clicked
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold tabular-nums text-white">
+                          {d.avgRisk}
+                        </span>
+                        <RiskBadge score={d.avgRisk} />
+                      </div>
+                    </div>
+                    <div className="mt-2 h-1.5 rounded-full bg-surface">
+                      <div
+                        className="h-1.5 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(d.avgRisk, 100)}%`,
+                          backgroundColor: BAND_COLOR[riskBand(d.avgRisk)],
+                        }}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-border-subtle bg-surface-raised">
             <div className="border-b border-border-subtle px-4 py-3">
