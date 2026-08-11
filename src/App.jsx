@@ -82,6 +82,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [profileError, setProfileError] = useState(null)
+  const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
     const handleSession = (session) => {
@@ -96,7 +97,21 @@ function App() {
       handleSession(session)
     })
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      // Fired when the user arrives via a password-reset link. Supabase
+      // establishes a temporary session from the recovery token; we flag
+      // it so the app shows the "choose a new password" screen instead of
+      // dropping them straight into the dashboard with a session they
+      // can't actually sign back into.
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecovery(true)
+      }
+      // A normal password sign-in must never land on the recovery screen.
+      // Clearing the flag here guarantees the reset screen can't get stuck
+      // showing after the user later signs in the ordinary way.
+      if (event === 'SIGNED_IN') {
+        setRecovery(false)
+      }
       handleSession(session)
     })
   }, [])
@@ -118,12 +133,22 @@ function App() {
         <Route
           path="*"
           element={
-            <AuthedApp
-              session={session}
-              profile={profile}
-              profileError={profileError}
-              setProfile={setProfile}
-            />
+            recovery && session ? (
+              <SetNewPassword
+                email={session.user.email}
+                heading="Choose a new password"
+                subtitle="Enter a new password for your account to finish resetting it."
+                clearMustChange={false}
+                onSuccess={() => setRecovery(false)}
+              />
+            ) : (
+              <AuthedApp
+                session={session}
+                profile={profile}
+                profileError={profileError}
+                setProfile={setProfile}
+              />
+            )
           }
         />
       </Routes>

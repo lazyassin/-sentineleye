@@ -3,7 +3,13 @@ import { ShieldCheck, Lock, Loader2, Check, X } from 'lucide-react'
 import { supabase } from '../supabase'
 import { passwordChecks, isPasswordValid } from '../lib/password'
 
-export default function SetNewPassword({ email, onSuccess }) {
+export default function SetNewPassword({
+  email,
+  onSuccess,
+  heading = 'Set a new password',
+  subtitle = "You're signed in with a temporary password. Choose a new one to continue.",
+  clearMustChange = true,
+}) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -32,10 +38,13 @@ export default function SetNewPassword({ email, onSuccess }) {
       return
     }
 
-    // Best-effort: a failed clear just means this screen shows again next
-    // login, which is harmless. Blocking entry after a successful password
-    // change would not be.
-    await supabase.rpc('clear_must_change_password')
+    // Only relevant to the first-login temporary-password flow. On a
+    // self-service reset there's no must_change flag to clear, so we skip
+    // it. Best-effort either way: a failed clear just means this screen
+    // shows again next login, which is harmless.
+    if (clearMustChange) {
+      await supabase.rpc('clear_must_change_password')
+    }
 
     setLoading(false)
     onSuccess()
@@ -58,10 +67,8 @@ export default function SetNewPassword({ email, onSuccess }) {
           onSubmit={handleSubmit}
           className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-xl"
         >
-          <h2 className="mb-1 text-sm font-semibold text-white">Set a new password</h2>
-          <p className="mb-4 text-xs text-gray-500">
-            You're signed in with a temporary password. Choose a new one to continue.
-          </p>
+          <h2 className="mb-1 text-sm font-semibold text-white">{heading}</h2>
+          <p className="mb-4 text-xs text-gray-500">{subtitle}</p>
 
           <div className="mb-4">
             <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-300">
