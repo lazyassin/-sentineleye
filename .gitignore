@@ -28,3 +28,6 @@ dist-ssr
 .claude/settings.local.json
 .vercel
 .env*
+# ...but the template is meant to be committed, so anyone cloning knows
+# which two values they need.
+!.env.example
