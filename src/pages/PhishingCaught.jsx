@@ -56,6 +56,41 @@ export default function PhishingCaught() {
   const [params] = useSearchParams()
   const detail = TEMPLATES[params.get('t')] ?? null
 
+  // ?v=a serves the control condition for the H2 usability evaluation: a
+  // generic pass/fail notice of the kind commercial platforms send, carrying
+  // threat information and no coping information. Identical card, spacing and
+  // typography to the treatment condition, so the only variable is content.
+  // Variant letters rather than names, so a participant reading the address
+  // bar cannot tell which version is the one under test.
+  if (params.get('v') === 'a') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-surface-raised p-8">
+          <div
+            className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
+            style={{ color: '#d03b3b', backgroundColor: 'rgba(208,59,59,0.12)', border: '1px solid rgba(208,59,59,0.3)' }}
+          >
+            <ShieldAlert className="h-3.5 w-3.5" />
+            Failed
+          </div>
+
+          <h1 className="mt-4 text-xl font-semibold text-white">
+            You failed this phishing test
+          </h1>
+          <p className="mt-3 text-sm leading-relaxed text-gray-400">
+            You clicked a link in a simulated phishing email. This result has been recorded and
+            reported to your security team, and your security awareness score has been updated
+            accordingly.
+          </p>
+          <p className="mt-4 text-sm leading-relaxed text-gray-400">
+            Employees are expected to identify and avoid phishing messages. Please take more care
+            with future emails.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface px-4 py-12">
       <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-surface-raised p-8">
