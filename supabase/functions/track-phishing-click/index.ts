@@ -55,7 +55,13 @@ Deno.serve(async (req) => {
     await assignRemediation(serviceClient, event)
   }
 
-  return redirect(REVEAL_URL)
+  // The debrief names the influence principle the message actually used, so
+  // the template travels with the redirect. PMT (Rogers, 1975) predicts a
+  // debrief that raises threat without supplying coping information won't
+  // change behaviour — a generic red-flag list is exactly that. Falls back to
+  // the generic page if the join came back empty.
+  const template = (event.phishing_campaigns as { template?: string } | null)?.template
+  return redirect(template ? `${REVEAL_URL}?t=${encodeURIComponent(template)}` : REVEAL_URL)
 })
 
 // Deliberately never throws: the recipient still needs their reveal page
