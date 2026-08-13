@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 660" width="980" height="660" font-family="Segoe UI, Calibri, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6b78"/>
+    </marker>
+    <marker id="aGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d9e75"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="660" fill="#ffffff"/>
+
+  <text x="490" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="#16324f">SentinelEye data model — one employee identity across both domains</text>
+  <text x="490" y="50" text-anchor="middle" font-size="12" fill="#6b7280">9 tables · 9 foreign keys · authorisation enforced by 11 row-level-security policies</text>
+
+  <!-- domain regions -->
+  <rect x="38" y="72" width="256" height="252" rx="10" fill="#fdf6f5" stroke="#f0dcd9" stroke-width="1"/>
+  <text x="52" y="92" font-size="11" font-weight="700" fill="#c9302c" letter-spacing="1">PHISHING DOMAIN</text>
+
+  <rect x="686" y="72" width="256" height="392" rx="10" fill="#f4faf7" stroke="#d5eae0" stroke-width="1"/>
+  <text x="700" y="92" font-size="11" font-weight="700" fill="#1d9e75" letter-spacing="1">TRAINING DOMAIN</text>
+
+  <!-- ============ phishing_campaigns ============ -->
+  <rect x="55" y="104" width="222" height="72" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 55 112 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="166" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">phishing_campaigns</text>
+  <text x="68" y="146" font-size="10.5" fill="#374151">id · name · template</text>
+  <text x="68" y="163" font-size="10.5" fill="#6b7280">target_count · created_at</text>
+
+  <!-- ============ phishing_events ============ -->
+  <rect x="55" y="222" width="222" height="88" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 55 230 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="166" y="241" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">phishing_events</text>
+  <text x="68" y="264" font-size="10.5" fill="#374151">id · campaign_id → · employee_id →</text>
+  <text x="68" y="281" font-size="10.5" fill="#374151">tracking_token (unique)</text>
+  <text x="68" y="298" font-size="10.5" fill="#6b7280">opened · clicked · reported · occurred_at</text>
+
+  <!-- ============ employees (hub) ============ -->
+  <rect x="379" y="222" width="222" height="88" rx="8" fill="#ffffff" stroke="#1d9e75" stroke-width="2.5"/>
+  <path d="M 379 230 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#1d9e75"/>
+  <text x="490" y="241" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">employees</text>
+  <text x="392" y="264" font-size="10.5" fill="#374151">id (primary key)</text>
+  <text x="392" y="281" font-size="10.5" fill="#374151">full_name · email · department</text>
+  <text x="392" y="298" font-size="10.5" fill="#6b7280">role · created_at</text>
+  <text x="490" y="204" text-anchor="middle" font-size="10.5" font-style="italic" fill="#1d9e75">the single identity both domains reference</text>
+
+  <!-- ============ profiles ============ -->
+  <rect x="379" y="366" width="222" height="70" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 379 374 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="490" y="385" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">profiles</text>
+  <text x="392" y="408" font-size="10.5" fill="#374151">id = auth.uid() · employee_id →</text>
+  <text x="392" y="425" font-size="10.5" fill="#6b7280">role · must_change_password</text>
+
+  <!-- ============ training_modules ============ -->
+  <rect x="703" y="104" width="222" height="88" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 703 112 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="814" y="123" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">training_modules</text>
+  <text x="716" y="146" font-size="10.5" fill="#374151">id · title · body · quiz</text>
+  <text x="716" y="163" font-size="10.5" fill="#1d9e75" font-weight="600">remediates_template</text>
+  <text x="716" y="180" font-size="10.5" fill="#6b7280">the lure-to-module mapping</text>
+
+  <!-- ============ training_completions ============ -->
+  <rect x="703" y="238" width="222" height="70" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 703 246 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="814" y="257" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">training_completions</text>
+  <text x="716" y="280" font-size="10.5" fill="#374151">employee_id → · module_id →</text>
+  <text x="716" y="297" font-size="10.5" fill="#6b7280">score · completed_at</text>
+
+  <!-- ============ training_assignments ============ -->
+  <rect x="703" y="366" width="222" height="88" rx="8" fill="#ffffff" stroke="#1d9e75" stroke-width="2.5"/>
+  <path d="M 703 374 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#1d9e75"/>
+  <text x="814" y="385" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">training_assignments</text>
+  <text x="716" y="408" font-size="10.5" fill="#374151">employee_id → · module_id →</text>
+  <text x="716" y="425" font-size="10.5" fill="#1d9e75" font-weight="600">source_event_id →</text>
+  <text x="716" y="442" font-size="10.5" fill="#6b7280">reason · unique(employee, module)</text>
+
+  <!-- ============ risk_score_history ============ -->
+  <rect x="379" y="500" width="222" height="62" rx="8" fill="#ffffff" stroke="#c9d3da" stroke-width="1.5"/>
+  <path d="M 379 508 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#16324f"/>
+  <text x="490" y="519" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">risk_score_history</text>
+  <text x="392" y="542" font-size="10.5" fill="#374151">employee_id → · score · recorded_at</text>
+  <text x="392" y="557" font-size="10" fill="#9ca3af">seeded trend only — live score is computed</text>
+
+  <!-- ============ security_metrics ============ -->
+  <rect x="55" y="500" width="222" height="62" rx="8" fill="#ffffff" stroke="#dfe5e9" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <path d="M 55 508 a 8 8 0 0 1 8 -8 h 206 a 8 8 0 0 1 8 8 v 16 h -222 z" fill="#9ca3af"/>
+  <text x="166" y="519" text-anchor="middle" font-size="12.5" font-weight="700" fill="#ffffff">security_metrics</text>
+  <text x="68" y="542" font-size="10.5" fill="#374151">metric · value · captured_at</text>
+  <text x="68" y="557" font-size="10" fill="#9ca3af">dashboard tiles — no foreign key</text>
+
+  <!-- ================= relationships ================= -->
+  <!-- campaigns -> events -->
+  <path d="M 166 176 L 166 222" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="174" y="203" font-size="10" fill="#6b7280">campaign_id</text>
+
+  <!-- events -> employees -->
+  <path d="M 277 266 L 379 266" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="328" y="259" text-anchor="middle" font-size="10" fill="#6b7280">employee_id</text>
+
+  <!-- employees -> profiles -->
+  <path d="M 490 310 L 490 366" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="498" y="342" font-size="10" fill="#6b7280">employee_id</text>
+
+  <!-- employees -> training_completions -->
+  <path d="M 601 262 L 703 268" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="652" y="255" text-anchor="middle" font-size="10" fill="#6b7280">employee_id</text>
+
+  <!-- modules -> completions -->
+  <path d="M 814 192 L 814 238" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="822" y="219" font-size="10" fill="#6b7280">module_id</text>
+
+  <!-- modules -> assignments (down the right edge) -->
+  <path d="M 925 148 C 958 148 958 400 925 400" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="962" y="278" font-size="10" fill="#6b7280" transform="rotate(90 962 278)">module_id</text>
+
+  <!-- employees -> assignments -->
+  <path d="M 601 292 C 650 292 655 390 703 390" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="648" y="352" text-anchor="middle" font-size="10" fill="#6b7280">employee_id</text>
+
+  <!-- employees -> risk_score_history -->
+  <path d="M 430 310 L 430 500" stroke="#5b6b78" stroke-width="1.6" fill="none" marker-end="url(#a)"/>
+  <text x="438" y="410" font-size="10" fill="#6b7280">employee_id</text>
+
+  <!-- ===== THE crossing edge: phishing_events -> training_assignments ===== -->
+  <path d="M 166 310 C 166 470 420 486 703 430" stroke="#1d9e75" stroke-width="2.6" fill="none" marker-end="url(#aGreen)" stroke-dasharray="7 4"/>
+  <rect x="286" y="452" width="248" height="36" rx="6" fill="#ffffff" stroke="#1d9e75" stroke-width="1.4"/>
+  <text x="410" y="468" text-anchor="middle" font-size="11" font-weight="700" fill="#1d9e75">source_event_id</text>
+  <text x="410" y="481" text-anchor="middle" font-size="9.5" fill="#374151">the click that caused the assignment</text>
+
+  <!-- footnote -->
+  <text x="490" y="600" text-anchor="middle" font-size="11.5" fill="#374151">Every table except <tspan font-style="italic">security_metrics</tspan> reaches <tspan font-weight="700" fill="#1d9e75">employees</tspan>, so one row-level-security predicate — <tspan font-family="Consolas, monospace" font-size="10.5">is_admin() or employee_id = current_employee_id()</tspan> —</text>
+  <text x="490" y="618" text-anchor="middle" font-size="11.5" fill="#374151">governs both domains. The dashed edge is what separates this from a simulator and a course catalogue sharing a database.</text>
+  <text x="490" y="642" text-anchor="middle" font-size="10" fill="#9ca3af">→ denotes a foreign key. Column lists are abridged to those the report refers to.</text>
+</svg>
