@@ -27,7 +27,9 @@ export default function MyTraining() {
     <>
       <div className="mb-6">
         <h1 className="text-lg font-semibold text-white">My training</h1>
-        <p className="text-sm text-gray-400">Signed in as {session.user.email}</p>
+        <p className="text-sm text-gray-400">
+          Signed in as {profile.employees?.full_name ?? session.user.email}
+        </p>
       </div>
 
       <RiskCard
